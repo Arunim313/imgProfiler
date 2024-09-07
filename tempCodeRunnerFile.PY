@@ -1,1 +1,0 @@
-print(lbpv(image))

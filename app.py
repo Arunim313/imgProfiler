@@ -2,8 +2,8 @@ import streamlit as st
 import symmetry
 from symmetry import bilateral_syemmetry, test_case
 import features
-import readrr
-from readrr import gray_img
+import imgprofiler.readrr as readrr
+from imgprofiler.readrr import gray_img
 import logging
 from sift_keypoints import visualize_keypoints
 import numpy as np
