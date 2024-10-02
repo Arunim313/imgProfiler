@@ -5,7 +5,11 @@ import numpy as np
 from skimage import exposure, filters, io
 import numpy as np
 from scipy.stats import kurtosis, skew
-def sharpness(array: np.ndarray) -> float:
+from scipy.ndimage import convolve
+import cv2
+from typing import Optional, Tuple
+
+def sharpness_value(array: np.ndarray) -> float:
     """
     Compute the sharpness of an image represented by a 2D array.
 
@@ -26,7 +30,58 @@ def sharpness(array: np.ndarray) -> float:
 
     return sharpness
 
+def sharpen_image(img: np.ndarray,
+                  strength: float = 0.5,
+                  kernel_size: Tuple[int, int] = (3, 3),
+                  use_lab: bool = True,
+                  blur_sigma: float = 0.5) -> np.ndarray:
+    """
+    Sharpens an input image using an adjustable kernel filter.
 
+    Parameters:
+    - img (numpy.ndarray): Input image as a 2D or 3D numpy array.
+    - strength (float): Strength of the sharpening effect. Default is 0.5.
+    - kernel_size (tuple): Size of the sharpening kernel. Default is (3, 3).
+    - use_lab (bool): Whether to sharpen in LAB color space. Default is True.
+    - blur_sigma (float): Sigma for Gaussian blur preprocessing. Default is 0.5.
+
+    Returns:
+    - numpy.ndarray: Sharpened version of the input image.
+    """
+    # Ensure the input image is in the correct format
+    if len(img.shape) == 2:
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+
+    # Convert to LAB color space if specified
+    if use_lab:
+        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+        channel_to_sharpen = l
+    else:
+        channel_to_sharpen = img
+
+    # Apply Gaussian blur to reduce noise
+    blurred = cv2.GaussianBlur(channel_to_sharpen, kernel_size, blur_sigma)
+
+    # Create sharpening kernel
+    kernel = np.ones(kernel_size) * -1
+    center = tuple(i // 2 for i in kernel_size)
+    kernel[center] = np.sum(np.abs(kernel)) + 1
+    kernel = kernel * strength
+
+    # Apply sharpening
+    sharpened = cv2.filter2D(blurred, -1, kernel)
+
+    # Clip values to ensure they're in the valid range
+    sharpened = np.clip(sharpened, 0, 255).astype(np.uint8)
+
+    # If using LAB, merge channels back and convert to BGR
+    if use_lab:
+        sharpened_lab = cv2.merge([sharpened, a, b])
+        sharpened_bgr = cv2.cvtColor(sharpened_lab, cv2.COLOR_LAB2BGR)
+        return sharpened_bgr
+    else:
+        return sharpened
 
 def lbpv(image: np.ndarray, radius: int = 1, neighbors: int = 8) -> np.ndarray:
     """
@@ -54,14 +109,13 @@ def lbpv(image: np.ndarray, radius: int = 1, neighbors: int = 8) -> np.ndarray:
             lbp[i, j] = pattern
         # Compute LBP variance
     lbp_variance = np.var(lbp)
-    
+
     return lbp_variance
 
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import convolve2d
 
-#
 # def lpq(img: np.ndarray, winSize: int = 3, freqestim: int = 1, mode: str = 'nh') -> np.ndarray:
 #     """
 #     Compute LPQ (Local Phase Quantization) descriptor for the given image.
@@ -128,8 +182,9 @@ from scipy.signal import convolve2d
 #         plt.xlabel("Bin")
 #         plt.ylabel("Frequency")
 #         plt.show()
-#
 #     return LPQdesc
+
+
 import streamlit as st
 import numpy as np
 from scipy.signal import convolve2d
@@ -205,10 +260,6 @@ def lpq(img: np.ndarray, winSize: int = 3, freqestim: int = 1, mode: str = 'nh')
         st.pyplot()
 
     return LPQdesc
-
-
-
-
 
 def fractal_dimension(image_data, max_box_size=None, min_box_size=1, n_samples=20, n_offsets=0, plot=False):
     """
@@ -293,8 +344,6 @@ def fractal_dimension(image_data, max_box_size=None, min_box_size=1, n_samples=2
 
     return fit_coeffs[0]
 
-
-
 def texture_analysis(gray):
     # Convert the image to grayscale
 
@@ -325,3 +374,4 @@ def texture_analysis(gray):
         "skewness": skew_gradient
     }
     return texture
+
